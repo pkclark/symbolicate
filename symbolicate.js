@@ -38,8 +38,6 @@ var processCrashReport = function(dSYM, report, cb) {
 			});	
 		}
 	});				 	
-	// var stacktrace = report.crash.threads[0].backtrace.contents;
-	// symbolicateStackTrace(metaInfo, stacktrace, function() {});	
 }
 
 var symbolicateStackTrace = function(metaInfo, stackTrace, cb) {
@@ -121,11 +119,15 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
     });
 }
 
+/***** CLI operations ******/
+
 var start = function() {
 	var crashFile = yargs['crash'];
 	var dSYMFile = yargs['dsym'];
+	var output = yargs['out'];
+
 	if (_.isEmpty(crashFile)|| _.isEmpty(dSYMFile)) {
-		console.log('Usage: node symbolicate.js --dsym crash.dsym --crash crash.json');
+		console.log('Usage: node symbolicate.js --dsym crash.dsym --crash crash.json {<optional> --out result.json>}');
 		return;
 	}
 
@@ -135,6 +137,10 @@ var start = function() {
 			if (err) {
 				throw err;
 			} else {
+				if (output) {
+					fs.writeFile(output, JSON.stringify(report, null, 2) , 'utf-8');
+					console.log(colors.white('output written to '+output));
+				}
 				prettyPrintReport(report);
 			}
 		});
@@ -153,3 +159,5 @@ var prettyPrintStackTrace = function(stackTrace) {
 }
 
 start();
+
+/***** CLI operations ******/
