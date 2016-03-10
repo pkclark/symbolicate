@@ -1,13 +1,15 @@
+/*******************************************************************
+The symbolication engine. 
+*******************************************************************/
+
 var strict  = true;
+
 var fs 		= require('fs'),
 	_  		= require('underscore'),
 	S       = require('string'),
 	path 	= require('path'),
  	exec 	= require('child_process').exec,
  	async	= require('async'),
- 	cliff	= require('cliff'),
- 	colors	= require('colors'),
- 	yargs	= require('yargs').argv,
  	NumberConverter = require('number-converter').NumberConverter,
  	nc 		= new NumberConverter(NumberConverter.DECIMAL, NumberConverter.HEXADECIMAL);
 
@@ -16,9 +18,15 @@ var ATOS_TOOL 		= 'atos',
 	SYS_FW_PATH 	= '/Symbols/System/Library/Frameworks',
 	SYS_DYLIB_PATH  = '/Symbols/usr/lib/system/';
 
-var processCrashReport = function(dSYM, report, cb) {
+/*
+Symbolicates a JSON crash report. 
+dSYMPath: The dSYM file path.
+report: The JSON crash report
+cb: callback(err, symbolicatedReport)
+*/
+var symbolicateCrashReport = function(dSYMPath, report, cb) {
 	var metaInfo = {
-					 'dSYM': dSYM,
+					 'dSYMPath': dSYMPath,
 					 'process_name': report.system.process_name,
 					 'cpu_arch': report.system.cpu_arch,
 					 'os_version': report.system.os_version,
@@ -64,10 +72,9 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
 	var nonProcessSymFile = path.join(DEV_SUPP_PATH, systemSymbolsPath).replace(/ /g, '\\ ');
 
 	if (object_name === metaInfo.process_name) {
-		//console.log('process sym');
 		values = {
 					'ATOS_TOOL': ATOS_TOOL,
-					'SYM_FILE' : metaInfo.dSYM,
+					'SYM_FILE' : metaInfo.dSYMPath,
 					'ARCH'	   : ((metaInfo.cpu_arch === 'armv7s')?'armv7':metaInfo.cpu_arch),
 					'OBJECT_ADDR': nc.convert(entry.object_addr),
 					'INSTRUCTION_ADDR': nc.convert(entry.instruction_addr)
@@ -109,7 +116,6 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
         	if (strict) {
         		cb(err)
         	} else {
-        		console.log(err);
         		cb(null, entry);
         	}
         } else {
@@ -119,45 +125,9 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
     });
 }
 
-/***** CLI operations ******/
-
-var start = function() {
-	var crashFile = yargs['crash'];
-	var dSYMFile = yargs['dsym'];
-	var output = yargs['out'];
-
-	if (_.isEmpty(crashFile)|| _.isEmpty(dSYMFile)) {
-		console.log('Usage: node symbolicate.js --dsym crash.dsym --crash crash.json {<optional> --out result.json>}');
-		return;
-	}
-
-	fs.readFile(crashFile, 'utf8', function (err, data) {
-		console.log('Symbolicating ...');
-		processCrashReport(dSYMFile, JSON.parse(data), function(err, report) {
-			if (err) {
-				throw err;
-			} else {
-				if (output) {
-					fs.writeFile(output, JSON.stringify(report, null, 2) , 'utf-8');
-					console.log(colors.white('output written to '+output));
-				}
-				prettyPrintReport(report);
-			}
-		});
-	});
-};
-
-var prettyPrintReport = function(report) {
-	var error = report.crash.error;
-	console.log(colors.red.bold('Reason: ') + colors.white(error.reason));
-	var crashedThread = _.findWhere(report.crash.threads, {crashed: true});
-	prettyPrintStackTrace(crashedThread.backtrace.contents);
+module.exports = {
+	'strict': strict,
+	'symbolicateCrashReport': symbolicateCrashReport
 }
 
-var prettyPrintStackTrace = function(stackTrace) {
-	 console.log(cliff.stringifyObjectRows(stackTrace, ['object_name', 'instruction_addr', 'symbol_name'],['yellow', 'yellow', 'yellow']));
-}
-
-start();
-
-/***** CLI operations ******/
+// eof
