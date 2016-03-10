@@ -13,11 +13,6 @@ var fs 		= require('fs'),
  	NumberConverter = require('number-converter').NumberConverter,
  	nc 		= new NumberConverter(NumberConverter.DECIMAL, NumberConverter.HEXADECIMAL);
 
-var ATOS_TOOL 		= 'atos',
-	DEV_SUPP_PATH	= '~/Library/Developer/Xcode/iOS\ DeviceSupport',
-	SYS_FW_PATH 	= '/Symbols/System/Library/Frameworks',
-	SYS_DYLIB_PATH  = '/Symbols/usr/lib/system/';
-
 /*
 Symbolicates a JSON crash report. 
 dSYMPath: The dSYM file path.
@@ -61,6 +56,11 @@ var symbolicateStackTrace = function(metaInfo, stackTrace, cb) {
 }
 
 var symbolicateEntry = function(metaInfo, entry, cb) {
+	var ATOS_TOOL 		= (process.platform === 'darwin')?('atos'):('atosl'),
+		DEV_SUPP_PATH	= '~/Library/Developer/Xcode/iOS\ DeviceSupport',
+		SYS_FW_PATH 	= '/Symbols/System/Library/Frameworks',
+		SYS_DYLIB_PATH  = '/Symbols/usr/lib/system/';
+
 	// Ex: atos -o xyz.dSYM -arch arm64 -l 0x26312000 0x2638dfb4
 	var cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} -arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
 	var object_name = entry.object_name;
@@ -113,11 +113,8 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
 	var cmd = S(cmdTemplate).template(values).s;
 	var child = exec(cmd, function(err, stdout, stderr) {
         if (err) {
-        	if (strict) {
-        		cb(err)
-        	} else {
-        		cb(null, entry);
-        	}
+        	if (strict) { cb(err) } 
+        	else { cb(null, entry) }
         } else {
         	entry.symbol_name = S(stdout).trim().s;
         	cb(null, entry);
@@ -130,4 +127,5 @@ module.exports = {
 	'symbolicateCrashReport': symbolicateCrashReport
 }
 
+// TODO: Add job logging support.
 // eof
