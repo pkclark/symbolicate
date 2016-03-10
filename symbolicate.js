@@ -56,13 +56,18 @@ var symbolicateStackTrace = function(metaInfo, stackTrace, cb) {
 }
 
 var symbolicateEntry = function(metaInfo, entry, cb) {
-	var ATOS_TOOL 		= (process.platform === 'darwin')?('atos'):('atosl'),
-		DEV_SUPP_PATH	= '~/Library/Developer/Xcode/iOS\ DeviceSupport',
+	var isMac = (process.platform === 'darwin');
+	var ATOS_TOOL 		= isMac?'atos':'atosl',
+		DEV_SUPP_PATH	= isMac?'~/Library/Developer/Xcode/iOS\ DeviceSupport':'/opt/xcode',
 		SYS_FW_PATH 	= '/Symbols/System/Library/Frameworks',
 		SYS_DYLIB_PATH  = '/Symbols/usr/lib/system/';
 
 	// Ex: atos -o xyz.dSYM -arch arm64 -l 0x26312000 0x2638dfb4
-	var cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} -arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
+	var cmdTemplate;
+	if(isMac)
+	 	cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} -arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
+	else 
+		cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} --arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
 	var object_name = entry.object_name;
 	var values = {};
 
@@ -70,7 +75,6 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
 	var systemSymbolsPath = S("{{SYS_VER}} \\({{OS_VER}}\\)").template({'SYS_VER': metaInfo.system_version, 
 																'OS_VER': metaInfo.os_version}).s;  
 	var nonProcessSymFile = path.join(DEV_SUPP_PATH, systemSymbolsPath).replace(/ /g, '\\ ');
-
 	if (object_name === metaInfo.process_name) {
 		values = {
 					'ATOS_TOOL': ATOS_TOOL,
@@ -98,7 +102,7 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
 		if (entry.symbol_name === '<redacted>') {
 			values = {
 				'ATOS_TOOL': ATOS_TOOL,
-				// <nonProcessSymFile>/System/Library/Frameworks/UIKit.framework/UIKit 
+				// Ex: <nonProcessSymFile>/System/Library/Frameworks/UIKit.framework/UIKit 
 				'SYM_FILE' : path.join(nonProcessSymFile, SYS_FW_PATH, entry.object_name+'.framework', entry.object_name),
 				'ARCH'	   : ((metaInfo.cpu_arch === 'armv7')?'armv7s':metaInfo.cpu_arch),
 				'OBJECT_ADDR': nc.convert(entry.object_addr),
