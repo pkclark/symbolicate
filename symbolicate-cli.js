@@ -29,8 +29,9 @@ var start = function() {
 				if (output) {
 					fs.writeFile(output, JSON.stringify(symbolicatedReport, null, 2) , 'utf-8');
 					console.log(colors.white('output written to '+output));
-				}
-				prettyPrintReport(symbolicatedReport);
+				} else {
+				    prettyPrintReport(symbolicatedReport);
+                }
 			}
 		});
 	});
@@ -38,13 +39,16 @@ var start = function() {
 
 var prettyPrintReport = function(report) {
 	var error = report.crash.error;
-	console.log(colors.red.bold('Reason: ') + colors.white(error.reason));
-	var crashedThread = _.findWhere(report.crash.threads, {crashed: true});
-	prettyPrintStackTrace(crashedThread.backtrace.contents);
+	console.log(colors.white.bold('Reason: '+error.reason));
+    _.each(report.crash.threads, function(thread) {
+        prettyPrintBacktrace(thread);    
+    });    
 }
 
-var prettyPrintStackTrace = function(stackTrace) {
-	 console.log(cliff.stringifyObjectRows(stackTrace, ['object_name', 'instruction_addr', 'symbol_name'],['yellow', 'yellow', 'yellow']));
+var prettyPrintBacktrace = function(thread) {
+    console.log(colors.white.bold('\nThread '+thread.index));
+    console.log(cliff.stringifyObjectRows(thread.backtrace.contents, ['object_name', 'instruction_addr', 'symbol_name'],
+                                                             ['yellow', 'yellow', 'yellow']));
 }
 
 start();
