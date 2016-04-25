@@ -18,7 +18,7 @@ var fs 		= require('fs'),
 /*
 Symbolicates a JSON crash report. 
 dSYMPath: The dSYM file path.
-report: The JSON crash report
+report: The JSON crash report content in KSCrash format. This is not file path.
 cb: callback(err, symbolicatedReport)
 */
 var symbolicateCrashReport = function(dSYMPath, report, cb) {
@@ -125,18 +125,25 @@ var symbolicateEntry = function(metaInfo, entry, cb) {
 	if(isMac) cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} -arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
 	else cmdTemplate = "{{ATOS_TOOL}} -o {{SYM_FILE}} --arch {{ARCH}} -l {{OBJECT_ADDR}} {{INSTRUCTION_ADDR}}";
 	// Ex: ~/Library/Developer/Xcode/iOS\ DeviceSupport/9.2.1\ \(13D15\)
+    // If we are using single version of system symbol files point that path here.
 	var systemSymbolsPath = S("{{SYS_VER}} \\({{OS_VER}}\\)").template({'SYS_VER': metaInfo.system_version, 
-																'OS_VER': metaInfo.os_version}).s;  
+																'OS_VER': metaInfo.os_version}).s;
 	var nonProcessSymFile = path.join(DEV_SUPP_PATH, systemSymbolsPath).replace(/ /g, '\\ ');
 
     var hexSymbols = {}, 
         toSymbolicate = [],
         object_name = entry.object_name;
+    
+    if (_.isEmpty(object_name)) {
+        cb(null, entry);
+        return;
+    }
     _.each(entry.symbols, function(name, decimalAddr) {
         var hex = nc.convert(decimalAddr);
         hexSymbols[hex] = name;
         toSymbolicate.push(hex);
     })
+    
     // TODO: If symbol name exists then skip from symbolication.
     entry.symbols = hexSymbols;
     entry.object_addr = nc.convert(entry.object_addr);
